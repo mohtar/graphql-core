@@ -1,5 +1,6 @@
 import collections
 import functools
+import sys
 
 from ..error import GraphQLError
 from ..language import ast
@@ -81,7 +82,7 @@ class Executor(object):
 
         return defer(self._execute_operation, ctx, root, ctx.operation, execute_serially) \
             .add_errback(
-            lambda error: ctx.errors.append(error)
+            lambda error: ctx.errors.append((error.type, error.value, error.traceback))
         ) \
             .add_callback(
             lambda data: ExecutionResult(data, ctx.errors),
@@ -186,14 +187,14 @@ class Executor(object):
             completed = self.complete_value(ctx, return_type, field_asts, info, result)
             if isinstance(completed, Deferred):
                 def handle_error(error):
-                    ctx.errors.append(error)
+                    ctx.errors.append((error.type, error.value, error.traceback))
                     return None
 
                 return completed.add_errback(handle_error)
 
             return completed
-        except Exception as e:
-            ctx.errors.append(e)
+        except Exception:
+            ctx.errors.append(sys.exc_info())
             return None
 
     def complete_value(self, ctx, return_type, field_asts, info, result):
